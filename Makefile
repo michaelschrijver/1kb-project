@@ -1,4 +1,4 @@
-all: 1kb.bin
+all: bitdec.bin
 ASFLAGS=-L
 vga_palette.s: palette.py
 	python palette.py > vga_palette.s
@@ -42,10 +42,10 @@ register_init: register_init.o
 size: 1kb.bin
 	@SIZE=$$(egrep ^.text 1kb.map | awk '{print $$3}'); SIZE=$$(printf "%d" $$SIZE) ; if [ $$SIZE -gt 1024 ] ; then printf "%d bytes left to remove\n" $$(($$SIZE - 1024)) ; else printf "%d bytes left to add\n" $$((1024 - $$SIZE)) ; fi
 
-run-qemu:
+run-qemu: bitdec.bin
 	qemu-system-x86_64 -bios bitdec.bin -soundhw adlib
 
-run-bochs:
+run-bochs: bitdec.bin
 	bochs 'romimage: file=./bitdec.bin' 
 
 clean:
