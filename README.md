@@ -1,6 +1,10 @@
 ## Synopsis
 
 This is an OPL-2 tracker implemented as a PC BIOS. It should run on 386+, but runs in real-mode to keep the code size down.
+I've only tested it in emulators (qemu mostly, bochs a few times), once my flash chip programmer arrives I'll have a go at running it on hardware.
+
+Currently it's a bit oversized, but think there's a few more bytes to squeeze and otherwise features to remove.
+It produces horrible sounds, which is also something to look into.
 
 # Compiling it
 
