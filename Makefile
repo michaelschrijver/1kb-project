@@ -43,7 +43,7 @@ size: 1kb.bin
 	@SIZE=$$(egrep ^.text 1kb.map | awk '{print $$3}'); SIZE=$$(printf "%d" $$SIZE) ; if [ $$SIZE -gt 1024 ] ; then printf "%d bytes left to remove\n" $$(($$SIZE - 1024)) ; else printf "%d bytes left to add\n" $$((1024 - $$SIZE)) ; fi
 
 run-qemu: bitdec.bin
-	qemu-system-x86_64 -bios bitdec.bin -soundhw adlib
+	qemu-system-x86_64 -bios bitdec.bin -soundhw adlib -debugcon stdio
 
 run-bochs: bitdec.bin
 	bochs 'port_e9_hack: enabled=1' 'romimage: file=./bitdec.bin' 
