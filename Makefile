@@ -46,7 +46,7 @@ run-qemu: bitdec.bin
 	qemu-system-x86_64 -bios bitdec.bin -soundhw adlib
 
 run-bochs: bitdec.bin
-	bochs 'romimage: file=./bitdec.bin' 
+	bochs 'port_e9_hack: enabled=1' 'romimage: file=./bitdec.bin' 
 
 clean:
 	rm -f 1kb.bin *.o
