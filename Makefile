@@ -20,7 +20,10 @@ packed_forth.o: bitdec.s packed_forth.s
 packed_forth.bin: packed_forth.o
 	ld -Map=packed_forth.map -o packed_forth.bin -T 1kb.lds packed_forth.o
 
-1kb.o: 1kb.s vga.s vga_registers.s vgafont16.s pic.s i8042.s vga_palette.s opl.s notes.s tracker.s notes.s note_data.s font.s
+font3x5.s: font3x5.py
+	python font3x5.py
+
+1kb.o: 1kb.s vga.s vga_registers.s vgafont16.s pic.s i8042.s vga_palette.s opl.s notes.s tracker.s notes.s note_data.s font.s font3x5.s
 
 1kb.bin: 1kb.o 1kb.lds
 	ld -Map=1kb.map -o 1kb.bin -T 1kb.lds 1kb.o
