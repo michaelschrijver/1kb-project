@@ -40,20 +40,19 @@ Calling interrupt 3 is a single byte instruction, making it a cheap function to 
 This is used not only in the unpacker itself but also in the final payload.
 
 The final payload is packed by compress.py. It makes a histogram of the payload and uses that
-to find the most frequent bytes. These most frequent bytes are replaced by shorter bit sequences starting with a 1-bit, the others get a 0-bit prefix. Net result is a shorter payload, though the loss don't completely offset the size of the unpacker. Reuse in the payload does make up for that.
+to find the most frequent bytes. These most frequent bytes are replaced by shorter bit sequences starting with a 1-bit, the others get a 0-bit prefix. Net result is a shorter payload, though the loss doesn't completely offset the size of the unpacker. Reuse in the payload does make up for that.
 
 The final payload is assembled from 1kb.s. In the file various macros are combined together
 to form the program. Various source files provides parts:
 vga.s - VGA initialization, sets a text mode, palette and loads a partial font
 vga_registers.s - VGA initialization data
 opl.s - OPL-2 code
-pic.s - PIC initialization code, configure interrupts
 i8042.s - 8042 initialization, only used for PS/2 keyboard
 notes.s - Initializes a table with notes in OPL-2 form, 
             contains code to output a note name to screen
 tracker.s - Tracker playback code and line rendering code
 
-1kb.s itself contains the keyboard interrupt handler and the main loop.
+1kb.s itself contains the keyboard handler and the main loop.
 
 Some of the data is generated using python scripts:
 compress.py - Compressing payload for bitdec.s
@@ -82,13 +81,13 @@ My attempts to pack this down into some VM-like structure unfortunately didn't p
 
 The initialization data and sequence itself was borrowed from the SeaBIOS project.
 
-## PIC & I8042
+## I8042
 
 Mostly straight-forward port setting code. Because the ports used can be used as immediates
 to the out instructions loading register setting data from memory doesn't help out here.
 Information about the settings I found mostly on the osdev website.
 
-# Keyboard interrupt handler
+# Keyboard handler
 
 Because of the many branches it's beneficial to push a return offset onto the stack and use
 the single byte ret instruction to terminate branches. This replaces a two byte relative jump.
