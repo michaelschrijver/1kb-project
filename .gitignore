@@ -1,0 +1,6 @@
+*.o
+*.bin
+*.map
+*~
+packed_data.s
+packed_forth.s
