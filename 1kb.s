@@ -4,17 +4,19 @@
  */
     .code16
 
-.include "pic.s"
 .include "i8042.s"
+.include "kbd_scancode2.s"
 
 .equ DEBUG, 0
 .equ OPL_DO_DELAY, 0
 
+.equ TRACKER_TICKS, 128
+
 .equ interrupt_table, 0x0
 
-.section .bss
-skip_next_scancode: .byte 0
-
+.bss
+last_count: .word 0 
+tracker_ticks: .byte 0
 .text
 
 .ifgt DEBUG
@@ -23,7 +25,6 @@ skip_next_scancode: .byte 0
 
 .include "notes.s"
 
-#.include "vgafont16.s"
 .include "font.s"
 .include "vga_registers.s"
 .include "vga.s"
@@ -35,30 +36,28 @@ skip_next_scancode: .byte 0
 keyboard_interrupt_return:
     andw    $(TRACKER_ROWS - 1), (current_row)
     andw    $(TRACKER_TRACKS -1), (current_track)
-eoi:
-    movb    $PIC_EOI, %al
-    outb    %al, $PIC1_COMMAND
     popa
-    iret
+    ret
+
+keyboard_wait:
+    mov     $16, %cx
+keyboard_wait_loop:
+    inb     $I8042_STATUS
+    test    $1, %al
+    jnz     keyboard_wait_over
+    loop    keyboard_wait_loop
+keyboard_wait_over:
+    ret
 
 keyboard_interrupt:
     pusha
 
-.ifgt DEBUG
-    mov     skip_next_scancode, %ax
-    call    dprint_int
-.endif
     push    $keyboard_interrupt_return
-    cmp     $0, skip_next_scancode
-    jz      keyboard_dispatch
-    decw    skip_next_scancode
-    inb     $I8042_DATA
-.ifgt DEBUG
-    mov     $0xff, %ah
-    call    dprint_int
-.endif
+    call    keyboard_wait
+    test    $1, %al
+    jnz     keyboard_read
     ret
-keyboard_dispatch:
+keyboard_read:
     movw    $current_note, %si
     inb     $I8042_DATA
 .ifgt DEBUG
@@ -69,15 +68,15 @@ keyboard_dispatch:
     jz      extended_scancode
     cmp     $0xf0, %al
     jz      extended_scancode2
-    cmp     $0x1b, %al
+    cmp     $SCANCODE_S, %al
     jz      s
-    cmp     $0x5a, %al
+    cmp     $SCANCODE_ENTER, %al
     jz      enter
-    cmp     $0x54, %al
+    cmp     $SCANCODE_BRACKET_OPEN, %al
     jz      bracket_open
-    cmp     $0x5b, %al
+    cmp     $SCANCODE_BRACKET_CLOSE, %al
     jz      bracket_close
-    cmp     $0x29, %al
+    cmp     $SCANCODE_SPACEBAR, %al
     jz      spacebar
     ret
 bracket_open:
@@ -103,7 +102,7 @@ s:
     jmp     tracker_set_note
 
 extended_scancode:
-    incw    skip_next_scancode
+    call    keyboard_wait
     inb     $I8042_DATA
 .ifgt DEBUG
     mov     $1, %ah
@@ -111,17 +110,17 @@ extended_scancode:
 .endif
     inc     %si
     inc     %si                     # %si = current_row
-    cmp     $0x75, %al
+    cmp     $SCANCODE_CURSOR_UP, %al
     jz      cursor_up
-    cmp     $0x72, %al
+    cmp     $SCANCODE_CURSOR_DOWN, %al
     jz      cursor_down
     inc     %si
     inc     %si                     # %si = current_track
-    cmp     $0x74, %al
+    cmp     $SCANCODE_CURSOR_RIGHT, %al
     jz      cursor_right
-    cmp     $0x6b, %al
+    cmp     $SCANCODE_CURSOR_LEFT, %al
     jz      cursor_left
-    cmp     $0x71, %al
+    cmp     $SCANCODE_DELETE, %al
     jz      delete
     cmp     $0xf0, %al
     jz      extended_scancode2
@@ -147,9 +146,16 @@ cursor_right:
 
 delete:
     mov     $TRACKER_NO_ENTRY, %al
-    jmp     tracker_set_note
+tracker_set_note:
+    movw    (current_row), %bx
+    shl     $3, %bx
+    movw    (current_track), %si
+    movb    %al, track(%bx,%si)
+tracker_interrupt_next_channel_ret:
+    ret
+
 extended_scancode2:
-    movb    $1, skip_next_scancode
+    call    keyboard_wait
     inb     $I8042_DATA
 .ifgt DEBUG
     mov     $2, %ah
@@ -165,31 +171,15 @@ entry:
     push    %cs
     pop     %ds
 
-    /* install interrupt handlers */
-    #sub     %ax, %ax
-    mov     $0, %ax
-    movw    %ax, %es
-    mov     %ax, %di
-    
-    movw    $tracker_interrupt, %ax
-    stosw
-    mov     %cs, %ax
-    stosw
-    movw    $keyboard_interrupt, %ax
-    stosw
-    movw    %cs, %ax
-    stosw
-
     opl_init
     opl_simple_tone_configure
 
     mov     $((2 << 1) | (3 << 4)), %al
     out     %al, $0x43
-    mov     $0xff, %al
+    mov     $0x0, %al
     out     %al, $0x40
-    out     %al, $0x40                      # set pit channel 0 to mode 3 reload value 0xffff
+    out     %al, $0x40                      # set pit channel 0 to mode 3 reload value 0x0
 
-    pic_init
     i8042_init
     push    %cs
     pop     %es
@@ -197,13 +187,29 @@ entry:
     notes_init
     vga_init                            # vga expect %cx=0
 
-    movw    $0, skip_next_scancode
-
-    sti
-
+    movb    $TRACKER_TICKS, (tracker_ticks)
     movw    $VGASEG_TEXT, %ax
     movw    %ax, %es
 infinity:
+    movb    $0, %al
+    outb    %al, $0x43
+    inb     $0x40, %al
+    xchg    %al, %ah
+    inb     $0x40, %al
+
+.ifgt DEBUG
+    call    dprint_int
+.endif
+
+    mov     (last_count), %dx
+    mov     %ax, (last_count)
+    cmp     %dx, %ax
+    jb      read_keyboard
+    decb    (tracker_ticks)
+    jnz     read_keyboard
+    movb    $TRACKER_TICKS, (tracker_ticks)
+    call    tracker_interrupt
+
     movw    $0, %di
     mov     (current_row), %si
     mov     %si, %bp
@@ -228,6 +234,6 @@ no_highlight:
     movb    $0x31, %dl
     movw    (current_note), %ax
     call    write_note_name
-
-    hlt
+read_keyboard:
+    call    keyboard_interrupt
     jmp     infinity

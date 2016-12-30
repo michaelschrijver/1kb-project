@@ -63,7 +63,7 @@ threespace:
 tracker_interrupt:
     pusha
     cmp     $0, tracker_playing
-    jz      eoi
+    jz      tracker_interrupt_ret 
     movw    $current_row, %si
     movw    (%si), %ax
     incw    (%si)
@@ -87,20 +87,14 @@ tracker_interrupt_next_channel:
     inc     %cx
     cmp     $8, %cx
     jnz     tracker_interrupt_loop
-    jmp     eoi
+tracker_interrupt_ret:
+    popa
+    ret
 
 tracker_interrupt_key_off:
     movb    %cl, %al
     jmp     opl_key_off
   
-tracker_set_note:
-    movw    (current_row), %bx
-    shl     $3, %bx
-    movw    (current_track), %si
-    movb    %al, track(%bx,%si)
-tracker_interrupt_next_channel_ret:
-    ret
-
 .section .bss
 track:
     .fill TRACKER_ROWS, TRACKER_TRACKS

@@ -13,7 +13,7 @@
     movb    $0x20, %al         # read configuration byte
     outb    %al, $I8042_COMMAND
     inb     $I8042_DATA, %al
-    orb     $(1 + 4 + 2), %al  # enable first interrupt, first clock and after-post flag 
+    orb     $(4 + 2), %al  # enable first clock and after-post flag 
     xchg    %ah, %al
     movb    $0x60, %al
     outb    %al, $I8042_COMMAND
