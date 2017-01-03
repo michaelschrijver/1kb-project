@@ -53,11 +53,30 @@ threespace:
 .endm
 
 .macro tracker_init # requires %es = 0
+.ifgt DEMO_SONG
+    movw    $demo_song, %si
+    movw    $track, %di
+    movw    $0, %cx
+tracker_init_loop:
+    lodsb
+    call    dprint_int
+    mov     %al, %cl
+    lodsb
+    call    dprint_int
+    rep     stosb
+    cmp     $demo_song_end, %si
+    jnz     tracker_init_loop
+    mov     $track_end, %cx
+    sub     %di, %cx
+    mov     $TRACKER_NO_ENTRY, %al
+    rep     stosb
+.else
     #movb    $TRACKER_NO_ENTRY, %al         # left like this by i8042_init
     movb    %al, %ah
     movw    $(TRACKER_ROWS * TRACKER_TRACKS / 2), %cx
     movw    $track, %di
     rep     stosw
+.endif
 .endm
 
 tracker_interrupt:
@@ -94,10 +113,18 @@ tracker_interrupt_ret:
 tracker_interrupt_key_off:
     movb    %cl, %al
     jmp     opl_key_off
-  
+
+.ifgt DEMO_SONG
+.section .rodata
+demo_song: .byte 1, 0, 8, TRACKER_NO_ENTRY
+demo_song_end:
+.endif
+
 .section .bss
 track:
     .fill TRACKER_ROWS, TRACKER_TRACKS
+track_end:
+
 current_note: .word 0           # order important!
 current_row: .word 0
 current_track: .word 0

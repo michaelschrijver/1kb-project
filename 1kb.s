@@ -9,6 +9,7 @@
 
 .equ DEBUG, 0
 .equ OPL_DO_DELAY, 0
+.equ DEMO_SONG, 1
 
 .equ TRACKER_TICKS, 128
 
