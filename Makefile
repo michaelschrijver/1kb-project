@@ -6,13 +6,16 @@ vga_palette.s: palette.py
 note_data.s: notes.py compress.py
 	python notes.py
 
-forth.o: forth.s
+forth_opcodes.s: forth.py forth.s
+	python forth.py opcodes
+
+forth.o: forth.s forth_opcodes.s
 
 forth.bin: forth.o
 	ld -Map=forth.map -o forth.bin -T 1kb.lds forth.o
 
 packed_forth.s: forth.py forth.o forth.bin test.forth
-	python forth.py
+	python forth.py compress
 
 packed_forth.o: bitdec.s packed_forth.s
 	as -o packed_forth.o --defsym FORTH=1 bitdec.s

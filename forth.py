@@ -16,16 +16,24 @@ class ForthCodeGenerator(object):
     def offset(self):
         return self.w.bits
 
-    def emit_immediate(self, v):
-        print 'immediate', v
-        self.w.write_bits(v, 16)
+    def emit_immediate(self, v, b = 16):
+        print 'immediate', hex(v), b
+        self.w.write_bits(v, b)
+
     def emit_word(self, v):
-        print 'word', v
+        print 'word', hex(v)
         if v > 30:
             self.w.write_bits(31, 5)
             self.w.write_bits(v - 31, 8)
         else:
             self.w.write_bits(v, 5)
+
+def scan_primitives():
+    primitive_re = re.compile('(\w+?):\s+#\s+FORTH: (\S+)')
+    for line in open('forth.s'):
+        m = primitive_re.match(line)
+        if m:
+            yield m.group(2), m.group(1)
 
 class ForthCompiler(object):
     def compile(self, s, cg):
@@ -47,7 +55,7 @@ class ForthCompiler(object):
                         body = cg.offset # pointer to body in bitstream
                     elif v == ';':
                         emit_named('exit')
-                        self.dictionary[name] = len(self.jump_table) | 32768
+                        self.dictionary[name] = len(self.jump_table)
                         self.jump_table.append(body | 32768)
                         name = None
                         body = None
@@ -60,30 +68,28 @@ class ForthCompiler(object):
                             cg.emit_word(word)
                             #print 'word', word, '(', self.jump_table[word], ')'
                 else:
-                    emit_named('immediate')
-                    cg.emit_immediate(immediate)
-                    #print 'immediate', immediate
+                    for bits in (5, 8, 16):
+                        if immediate < (2**bits):
+                            emit_named('immediate{}'.format(bits))
+                            cg.emit_immediate(immediate, bits)
+                            break
+                    else:
+                        raise ValueError('{} out of range for immediate'.format(v))
         except StopIteration:
             pass
 
     def load_primitives(self):
-        primitive_re = re.compile('(\w+?):\s+#\s+FORTH: (\S+)')
         symbols = dict(load_symbols('forth.o'))
         self.jump_table = []
         self.dictionary = {}
-        for line in open('forth.s'):
-            m = primitive_re.match(line)
-            if m:
-                self.dictionary[m.group(2)] = len(self.jump_table)
-                self.jump_table.append(symbols[m.group(1)])
+        for primitive, label in scan_primitives():
+            self.dictionary[primitive] = len(self.jump_table)
+            self.jump_table.append(symbols[label])
         return symbols
 
 def forth_compress(writer, payload):
     c = ForthCompiler()
     symbols = c.load_primitives()
-    print len(c.dictionary), 'primitives loaded.'
-    for p, i  in sorted(c.dictionary.iteritems(), key = lambda v:v[1]):
-        print i, p
     binary = list([ord(ch) for ch in open('forth.bin').read()])
     repeated_bytes = compress.repeated_bytes(compress.histogram(binary))
     def size_projection(b):
@@ -132,10 +138,23 @@ def forth_compress(writer, payload):
         out_file.write("table: .byte %s\n" % ", ".join(['0x%02X' % v for v in codepoints]))
 
 if __name__ == '__main__':
-    #c = ForthCompiler()
-    #c.load_primitives()
-    #s = open('test.forth', 'r').read()
-    #c.compile(s)
-    writer = compress.BitWriter()
-    forth_compress(writer, open("test.forth").read())
-    print writer.bits / 8
+    import argparse
+    def do_compress(args):
+        writer = compress.BitWriter()
+        forth_compress(writer, open("test.forth").read())
+        print writer.bits / 8
+    def do_opcodes(args):
+        with open('forth_opcodes.s', 'w') as f:
+            for i, (p, _)  in enumerate(scan_primitives()):
+                p = p.replace(':', 'COLON').replace('@', 'AT').replace('+', 'PLUS').replace('-', 'MINUS').replace('<', 'LT').replace('/', 'DIV').replace('!', 'STORE').upper()
+                f.write(".equ FORTH_OPCODE_{}, {}\n".format(p, i))
+
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    parser_opcodes = subparsers.add_parser('opcodes')
+    parser_opcodes.set_defaults(func = do_opcodes)
+    parser_compress = subparsers.add_parser('compress')
+    parser_compress.set_defaults(func = do_compress)
+    args = parser.parse_args()
+    args.func(args)
+

@@ -1,5 +1,7 @@
 .code16
 
+.include "forth_opcodes.s"
+
 .text
 
 .macro NEXT
@@ -21,6 +23,13 @@
 
 # Virtual machine
 
+forth_immediate_lengths:
+    .byte 16  # branch
+    .byte 16  # branch0
+    .byte 16  # immediate16
+    .byte 8   # immediate8
+    .byte 5   # immediate5
+    
 forth_interpreter_start:
 #    mov     $forth_bytecode, %si   # inherited from loader
 #    mov     $0, %bp
@@ -47,6 +56,10 @@ forth_interpreter_dispatch:
 .endif
     push    %bx
     mov     %ax, %bx
+    cmp     $FORTH_OPCODE_EXIT, %bx
+    jae     forth_no_immediate
+    mov     %cs:forth_immediate_lengths(%bx), %cl
+forth_no_immediate:
     add     %bx, %bx
     mov     %cs:forth_dictionary(%bx), %ax
     pop     %bx
@@ -69,25 +82,26 @@ forth_interpreter_compilation:
     pop     %ax
     call    dprint_int
 .endif
-    cmp     $3, %ax                # 3 = exit
-    jb      forth_interpreter_skip_immediate
+    cmp     $FORTH_OPCODE_EXIT, %ax
+    jb      forth_skip_immediate
     jnz     forth_interpreter_next
     decw    %cs:(forth_compilation_mode)
     NEXT
-forth_interpreter_skip_immediate:
-    push    $forth_interpreter_next
-forth_load_immediate:
-    mov     $16, %cx
-    int     $3
-    ret
+forth_skip_immediate:
+    xchg    %ax,%bx
+    mov     %cs:forth_immediate_lengths(%bx), %cl
+    xchg    %ax,%bx
+    jmp     forth_load_immediate
 
 forth_branch: # FORTH: branch
-    call    forth_load_immediate
+    mov     $16, %cx
+    int     $3
     add     %ax, %bp
     NEXT
 
 forth_branch0: # FORTH: branch0
-    call    forth_load_immediate
+    mov     $16, %cx
+    int     $3
     pop     %dx
     test    %dx, %dx
     jnz     forth_nobranch0
@@ -95,11 +109,20 @@ forth_branch0: # FORTH: branch0
 forth_nobranch0:
     NEXT
 
-forth_immediate: # FORTH: immediate
+forth_immediate16: # FORTH: immediate16
     mov     $16, %cx
+forth_load_immediate:
     int     $3
     push    %ax
     NEXT
+
+forth_immediate8: # FORTH: immediate8
+    mov     $8, %cx
+    jmp     forth_load_immediate
+
+forth_immediate5: # FORTH: immediate5
+    mov     $5, %cx
+    jmp     forth_load_immediate
 
 forth_exit: # FORTH: exit
     movw    %ss:(%bx), %bp
@@ -248,10 +271,6 @@ forth_store_byte: # FORTH: c!
     stosb
     NEXT
 
-
-# skipped [']
-
-
 forth_lt: # FORTH: <
     pop     %ax
     pop     %dx
@@ -348,7 +367,7 @@ forth_hlt_loop:
     hlt
     jmp     forth_hlt_loop
 
-forth_dictionary_index: .word 34 # needs to match number of primitives
+forth_dictionary_index: .word FORTH_OPCODE_HALT + 1 # needs to match number of primitives
 forth_compilation_mode: .word 0
 forth_dictionary: #.fill 256+31,2
 .section .bss
