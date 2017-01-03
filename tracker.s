@@ -59,10 +59,8 @@ threespace:
     movw    $0, %cx
 tracker_init_loop:
     lodsb
-    call    dprint_int
     mov     %al, %cl
     lodsb
-    call    dprint_int
     rep     stosb
     cmp     $demo_song_end, %si
     jnz     tracker_init_loop
