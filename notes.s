@@ -36,7 +36,7 @@ notes_inner_loop:
 # 0  1  2  3  4  5  6  7  8  9  10 11
 write_note_name: # write note %ax with attribute %dl to %es:%di
                        # clobbers %dh, %bx, %ax
-    add     $3, %ax
+    #add     $3, %ax
     aam     $12
     push    %ax
     movw    $note_names, %bx

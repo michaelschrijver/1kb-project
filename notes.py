@@ -48,7 +48,7 @@ def generate_notes():
     last_block = 0
     for base_freq in octaves:
         for note in range(12):
-            freq = base_freq * ratio**(note + 3) # start a C0
+            freq = base_freq * ratio**(note) # start a A0
             for block, max_freq in enumerate(opl_blocks):
                 if freq < max_freq:
                     break
