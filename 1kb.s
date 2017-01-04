@@ -149,6 +149,7 @@ delete:
     mov     $TRACKER_NO_ENTRY, %al
 tracker_set_note:
     movw    (current_row), %bx
+    incw    (current_row)
     shl     $3, %bx
     movw    (current_track), %si
     movb    %al, track(%bx,%si)
