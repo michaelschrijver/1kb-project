@@ -114,8 +114,7 @@ tracker_interrupt_key_off:
 
 .ifgt DEMO_SONG
 .section .rodata
-demo_song: .byte 1, 0, 8, TRACKER_NO_ENTRY
-demo_song_end:
+.include "demo_song.s"
 .endif
 
 .section .bss
