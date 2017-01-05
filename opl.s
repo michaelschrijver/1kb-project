@@ -35,19 +35,9 @@ opl_init_loop:
 .endm
 
 .section .rodata
-#simple_tone: .byte 0x10, 0xf0, 0x77
-#.text
-#.macro opl_simple_tone_configure
-#    mov     $0120, %ax
-#    mov     $3, %cx
-#opl_simple_tone_configure_loop:
-#    call    opl_write_register
-#    add     $20, %al
-#    xchg    %ah, %al
-#    lodsb
-#    xchg    %ah, %al
-#    loop    opl_simple_tone_configure_loop
-opl_simple_tone: .word 0x0120, 0x1040, 0xf060, 0x7780, 0x0123, 0x0043, 0xf063, 0x7783
+
+opl_simple_tone: .word 0x2120, 0xd40, 0xe960, 0x3a80, 0x2223, 0x8043, 0x6563, 0x6c83
+
 .text
 .macro opl_simple_tone_configure
     mov     $0x12, %cx                  # set all operators
@@ -83,12 +73,10 @@ opl_key_on: # %al = channel, %bx = note
     call    opl_write_register
     pop     %ax
     mov     %bh, %ah
-    #movb    $0x31, %ah
     jmp     opl_key_set
 
 opl_key_off: # %al = channel
-    sub     %ah, %ah
-
+    mov     $0, %ah
 opl_key_set:    
     add     $0xb0, %al
     jmp     opl_write_register
